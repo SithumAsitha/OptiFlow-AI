@@ -24,3 +24,6 @@ To run this project locally, follow these steps:
 1. Clone the repository:
    ```bash
    git clone https://github.com/SithumAsitha/OptiWare.git
+2. Run the app
+   ```bash
+   streamlit run web_app.py
