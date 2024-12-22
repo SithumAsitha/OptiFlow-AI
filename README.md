@@ -1,6 +1,6 @@
-# OptiWare - A Web Application meticulously designed to optimize Supply Chain Operations 🚚📦
+# OptiWare - AI Powered Web Application meticulously designed to optimize Supply Chain Operations 🚚📦
 
-**OptiWare** is a web application designed to improve supply chain operations by enhancing efficiency and reducing costs. It leverages predictive analytics to forecast demand, optimize stock levels, and streamline warehouse organization. The app also helps businesses identify and retain customers, making it an essential tool for modern warehouse management.
+**OptiWare** is an AI powered web application designed to improve supply chain operations by enhancing efficiency and reducing costs. It leverages predictive analytics to forecast demand, optimize stock levels, and streamline warehouse organization. The app also helps businesses identify and retain customers, making it an essential tool for modern warehouse management.
 
 ## Features ✨
 
