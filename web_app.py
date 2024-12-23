@@ -10,7 +10,7 @@ def get_base64_from_file(file_path):
         return base64.b64encode(file.read()).decode("utf-8")
 
 # Path to the background image
-background_image = "warehouse.jpg"  # Replace with your image file path
+background_image = "images/warehouse.jpg"  # Replace with your image file path
 base64_image = get_base64_from_file(background_image)
 
 # Apply custom CSS for background image, button positioning, and hover effect
@@ -21,15 +21,17 @@ st.markdown(f"""
         background-size: 100% 100%;
         background-repeat: no-repeat;
         background-position: center;
+        background-color: rgba(0, 0, 0, 0.4);
+        background-blend-mode: overlay; 
     }}
     .content-box {{
         background-color: rgba(0, 0, 0, 0.6);
         color: white;
         font-size: 18px;
         text-align: justify;
-        padding: 20px;
+        padding: 10px;
         border-radius: 10px;
-        margin: 20px auto;
+        margin: 10px auto;
         width: 100%;
     }}
     .content-box h2 {{
@@ -75,30 +77,42 @@ st.markdown(f"""
     .stButton > button:hover::after {{
         transform: translateX(0) rotate(0deg);
     }}
-    /* Override the active state to keep the color black */
     .stButton > button:active {{
-        color: black; /* Set text color to black on click */
-        border-color: black; /* Set border color to black on click */
-        background-color: rgba(0, 0, 0, 0.6); /* Ensure background remains consistent */
+        color: black;
+        border-color: black;
+        background-color: rgba(0, 0, 0, 0.6);
     }}
     </style>
 """, unsafe_allow_html=True)
 
+# Initialize session state for button click
+if "explore_clicked" not in st.session_state:
+    st.session_state.explore_clicked = False
 
 # Page Content
-st.markdown(
-    """
-    <div class="content-box">
-        <h2><b>👷🏼 Welcome to OPTIWARE</b></h2>
-        <p><b>OPTIWARE is designed to help improve warehouse operations by making tasks more efficient and reducing costs. It achieves this by focusing on key areas such as planning ahead, maintaining stock levels, better organization, and improving customer satisfaction 🎯.</b></p>
-        <p><b>The app predicts which products are likely to be needed soon and when returns may occur, helping warehouses stay ahead of demand. It also ensures that stock is replenished in a timely manner, which helps avoid delays and reduce unnecessary labor costs 💰. Additionally, it improves warehouse organization by strategically placing items in easy-to-reach locations based on how often they are picked, making it easier for staff to locate products quickly.</b></p>
-        <p><b>OPTIWARE helps to identify customers who might stop buying, allowing businesses to take action and keep their customers happy and loyal. This overall approach leads to smoother warehouse operations, better customer service, and lower costs 🚀.</b></p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+if not st.session_state.explore_clicked:
+    st.markdown(
+        """
+        <div class="content-box">
+            <h2><b>👷🏼 Welcome to OPTIWARE</b></h2>
+            <p><b>OPTIWARE is designed to help improve warehouse operations by making tasks more efficient and reducing costs. It achieves this by focusing on key areas such as planning ahead, maintaining stock levels, better organization, and improving customer satisfaction 🎯.</b></p>
+            <p><b>The app predicts which products are likely to be needed soon and when returns may occur, helping warehouses stay ahead of demand. It also ensures that stock is replenished in a timely manner, which helps avoid delays and reduce unnecessary labor costs 💰. Additionally, it improves warehouse organization by strategically placing items in easy-to-reach locations based on how often they are picked, making it easier for staff to locate products quickly.</b></p>
+            <p><b>OPTIWARE helps to identify customers who might stop buying, allowing businesses to take action and keep their customers happy and loyal. This overall approach leads to smoother warehouse operations, better customer service, and lower costs 🚀.</b></p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Explore"):
+        st.session_state.explore_clicked = True
+        st.rerun()  # Force the app to reload immediately
 
-# Explore Button
-if st.button("Explore"):
-    st.write("Redirecting to the app...")
-    # Add redirection logic here if needed
+else:
+    st.markdown(
+        """
+        <div class="content-box">
+            <h2><b>🏠 Home Page Content</b></h2>
+            <p><b>Welcome to the OPTIWARE Home Page! Explore the features and tools designed to optimize your warehouse operations.</b></p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
