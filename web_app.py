@@ -2,6 +2,11 @@ import streamlit as st
 import base64
 from streamlit_option_menu import option_menu
 import os
+import pandas as pd
+import numpy as np
+import random
+import gym
+from gym import spaces
 
 # Set page configuration
 st.set_page_config(page_title="OptiFow AI", page_icon="🚚")
@@ -234,15 +239,166 @@ else:
         )
 
     elif selected == "Inventory Management":
+        
         st.markdown(
             """
             <div class="content-box">
                 <h2>Inventory Management</h2>
-                <p>Details about inventory management go here.</p>
+                <p>Upload the current stock report and generated forecast report to dynamically prioritize replenishments.</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
+        # Streamlit UI for uploading files
+        stock_file = st.file_uploader("Upload Stock Report (CSV)", type="csv")
+        forecast_file = st.file_uploader("Upload Demand Forecast Report (Excel)", type="xlsx")
+
+        if stock_file and forecast_file:
+            # Load and process data
+            stock_data = pd.read_csv(stock_file)
+            forecasted_demand = pd.read_excel(forecast_file, sheet_name=0, index_col=0)
+
+            # Ensure numeric data for 'On Hand'
+            stock_data['On Hand'] = pd.to_numeric(stock_data['On Hand'], errors='coerce').fillna(0)
+
+            if st.button("Generate Replenishment Plan"):
+                # Define the replenishment environment class
+                class ReplenishmentEnv(gym.Env):
+                    def __init__(self, forecast, stock_mapping):
+                        super(ReplenishmentEnv, self).__init__()
+                        self.forecast = forecast
+                        self.stock_mapping = stock_mapping
+                        self.items = list(stock_mapping.keys())
+                        self.action_space = spaces.Discrete(len(self.items))
+                        self.observation_space = spaces.Box(
+                            low=0, high=np.inf, shape=(len(self.items),), dtype=np.float32
+                        )
+                        self.reset()
+
+                    def reset(self):
+                        self.remaining_demand = self.forecast.sum(axis=0).to_dict()
+                        self.stock_levels = {
+                            item: locations["high_rack"]["On Hand"].sum()
+                            for item, locations in self.stock_mapping.items()
+                        }
+                        return np.array(list(self.remaining_demand.values()), dtype=np.float32)
+
+                    def step(self, action):
+                        item = self.items[action]
+                        if item not in self.remaining_demand or self.remaining_demand[item] <= 0:
+                            return self._get_obs(), -10, True, {}
+
+                        demand = self.remaining_demand[item]
+                        stock = self.stock_levels.get(item, 0)
+
+                        if demand == 0:
+                            replenishment_quantity = 0
+                            reward = 0
+                        else:
+                            replenishment_quantity = min(demand, stock)
+                            if replenishment_quantity > 0:
+                                self.remaining_demand[item] -= replenishment_quantity
+                                self.stock_levels[item] -= replenishment_quantity
+                                reward = replenishment_quantity
+                            else:
+                                reward = -5
+
+                        done = all(v <= 0 for v in self.remaining_demand.values())
+                        return self._get_obs(), reward, done, {}
+
+                    def _get_obs(self):
+                        return np.array(list(self.remaining_demand.values()), dtype=np.float32)
+
+                # Helper functions
+                def create_mapping(high_rack, pick_piece):
+                    mapping = {}
+                    for item in high_rack["Material"].unique():
+                        high_rack_locations = high_rack[high_rack["Material"] == item]
+                        pick_piece_locations = pick_piece[pick_piece["Material"] == item]
+                        if not high_rack_locations.empty and not pick_piece_locations.empty:
+                            mapping[item] = {
+                                "high_rack": high_rack_locations,
+                                "pick_piece": pick_piece_locations.iloc[0]["Location"]
+                            }
+                    return mapping
+
+                def train_model(stock_data, forecasted_demand):
+                    high_rack_stock = stock_data[stock_data["Location Type (Not Location)"] == "High Rack"]
+                    pick_piece_stock = stock_data[stock_data["Location Type (Not Location)"] == "PICK - Piece"]
+                    mapped_locations = create_mapping(high_rack_stock, pick_piece_stock)
+
+                    env = ReplenishmentEnv(forecasted_demand, mapped_locations)
+                    q_table = {}
+                    learning_rate = 0.1
+                    discount_factor = 0.9
+                    epsilon = 1.0
+                    min_epsilon = 0.01
+                    epsilon_decay = 0.995
+
+                    num_episodes = 1000
+                    for episode in range(num_episodes):
+                        state = env.reset()
+                        discrete_state = tuple(state.astype(int))
+                        done = False
+                        while not done:
+                            if random.uniform(0, 1) < epsilon:
+                                action = env.action_space.sample()
+                            else:
+                                action = np.argmax(q_table.get(discrete_state, np.zeros(env.action_space.n)))
+
+                            next_state, reward, done, _ = env.step(action)
+                            discrete_next_state = tuple(next_state.astype(int))
+
+                            if discrete_state not in q_table:
+                                q_table[discrete_state] = np.zeros(env.action_space.n)
+                            if discrete_next_state not in q_table:
+                                q_table[discrete_next_state] = np.zeros(env.action_space.n)
+
+                            q_table[discrete_state][action] = (
+                                (1 - learning_rate) * q_table[discrete_state][action] +
+                                learning_rate * (reward + discount_factor * np.max(q_table[discrete_next_state]))
+                            )
+
+                            discrete_state = discrete_next_state
+
+                        epsilon = max(min_epsilon, epsilon * epsilon_decay)
+
+                    replenishment_plan = []
+                    for item in env.items:
+                        high_rack_location = mapped_locations[item]["high_rack"].iloc[0]["Location"]
+                        pick_piece_location = mapped_locations[item]["pick_piece"]
+                        replenishment_plan.append({
+                            "item": item,
+                            "from_location": high_rack_location,
+                            "to_location": pick_piece_location,
+                            "quantity": env.stock_levels[item]
+                        })
+
+                    # Convert to DataFrame and sort by quantity in descending order
+                    replenishment_plan_df = pd.DataFrame(replenishment_plan)
+                    replenishment_plan_df = replenishment_plan_df.sort_values(by="quantity", ascending=False)
+
+                    return replenishment_plan_df
+
+                # Generate the replenishment plan
+                replenishment_plan = train_model(stock_data, forecasted_demand)
+
+                # Display success message and the DataFrame
+                st.success("Replenishment Plan Generated!")
+                st.dataframe(replenishment_plan)
+
+                # Provide download option
+                replenishment_plan_file = "replenishment_plan.xlsx"
+                replenishment_plan.to_excel(replenishment_plan_file, index=False)
+                with open(replenishment_plan_file, "rb") as file:
+                    st.download_button(
+                        label="Download Replenishment Plan",
+                        data=file,
+                        file_name=replenishment_plan_file,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
 
     elif selected == "Warehouse Management":
         st.markdown(
