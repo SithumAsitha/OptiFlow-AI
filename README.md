@@ -4,7 +4,7 @@
 
 ## Features ✨
 
-- **Predictive Replenishment**: OptiWare predicts which products are likely to be needed soon and when returns may occur, helping warehouses stay ahead of demand. 📈
+- **Predictive Replenishment**: OptiFlow AI predicts which products are likely to be needed soon and when returns may occur, helping warehouses stay ahead of demand. 📈
 - **Stock Optimization**: Ensures stock is replenished in a timely manner, avoiding delays and reducing unnecessary labor costs. 💰
 - **Warehouse Organization**: Helps strategically place items in easy-to-reach locations based on how often they are picked, making it easier for staff to locate products quickly. 🏢
 - **Customer Retention**: Identifies customers who might stop buying, allowing businesses to take action to keep their customers happy and loyal. ❤️
