@@ -1,6 +1,6 @@
-# OptiWare - AI Powered Web Application meticulously designed to optimize Supply Chain Operations 🚚📦
+# OptiFlow AI - AI Powered Web Application meticulously designed to optimize Supply Chain Operations 🚚📦
 
-**OptiWare** is an AI powered web application designed to improve supply chain operations by enhancing efficiency and reducing costs. It leverages predictive analytics to forecast demand, optimize stock levels, and streamline warehouse organization. The app also helps businesses identify and retain customers, making it an essential tool for modern warehouse management.
+**OptiFlow AI** is an AI powered web application designed to improve supply chain operations by enhancing efficiency and reducing costs. It leverages predictive analytics to forecast demand, optimize stock levels, and streamline warehouse organization. The app also helps businesses identify and retain customers, making it an essential tool for modern warehouse management.
 
 ## Features ✨
 
@@ -23,7 +23,7 @@ To run this project locally, follow these steps:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/SithumAsitha/OptiWare.git
+   git clone https://github.com/SithumAsitha/OptiFlow-AI.git
 2. Run the app
    ```bash
    streamlit run web_app.py
