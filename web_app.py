@@ -245,10 +245,33 @@ else:
             <div class="content-box">
                 <h2>Inventory Management</h2>
                 <p>Upload the current stock report and generated forecast report to dynamically prioritize replenishments.</p>
+                <div id="success-message" style="display: none; color: green; font-weight: bold;">
+                Replenishment Plan Generated!
+                </div>
+                <style>
+                .stButton button {
+                    width: auto !important;
+                    white-space: nowrap;
+                }
+                </style>
+
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("""
+            <style>
+                div.stFileUploader {
+                    background-color: rgba(0, 0, 0, 0.8); /
+                    border-radius: 10px;
+                    padding: 10px;
+                }
+                div.stFileUploader > label {
+                    color: white;
+                    font-weight: bold;
+                }
+            </style>
+        """, unsafe_allow_html=True)
 
         # Streamlit UI for uploading files
         stock_file = st.file_uploader("Upload Stock Report (CSV)", type="csv")
