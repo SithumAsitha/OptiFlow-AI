@@ -1,8 +1,18 @@
 import streamlit as st
+import pandas as pd
+import numpy as np
 import base64
 from streamlit_option_menu import option_menu
 import os
 from warehouse_management import run_warehouse_management  # Import your warehouse management function
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from sklearn.preprocessing import MinMaxScaler
+import io
+import random
+import gym
+from gym import spaces
+
 
 # Set page configuration
 st.set_page_config(page_title="OptiFow AI", page_icon="🚚")
@@ -20,7 +30,22 @@ def get_base64_from_file(file_path):
 background_image = "images/warehouse.jpg"  # Replace with your image file path
 base64_image = get_base64_from_file(background_image)
 
+
+# Register the custom metric if needed
+@tf.keras.utils.register_keras_serializable()
+def mse(y_true, y_pred):
+    return tf.reduce_mean(tf.square(y_true - y_pred))
+
+# Function to save DataFrame to Excel
+def to_excel(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=True, sheet_name="Forecast")
+    output.seek(0)
+    return output
+
 # Apply custom CSS if the image is valid
+
 if base64_image:
     st.markdown(f"""
     <style>
@@ -129,7 +154,7 @@ else:
             menu_title="OptiFlow AI - Intelligent Supply Chain Management System",
             options=[
                 "Home",
-                "Demand & Return Forecasting",
+                "Demand Forecasting",
                 "Inventory Management",
                 "Warehouse Management",
                 "Customer Churn Prediction"
@@ -212,6 +237,7 @@ else:
         else:
             st.warning("GIF file not found. Please check the file path.")
 
+
     elif selected == "Warehouse Management":
         # Hide the sidebar and remove the background image for this section
         st.markdown(
@@ -247,27 +273,362 @@ else:
         # Run the warehouse management code
         run_warehouse_management()
 
-    elif selected == "Demand & Return Forecasting":
+
+    elif selected == "Demand Forecasting":
+    
+
         st.markdown(
             """
             <div class="content-box">
-                <h2>Demand & Return Forecasting</h2>
-                <p>Details about demand forecasting go here.</p>
+                <h2>Demand Forecasting</h2>
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("""
+            <style>
+                div.stFileUploader {
+                    background-color: rgba(0, 0, 0, 0.8); /
+                    border-radius: 10px;
+                    padding: 10px;
+                }
+                div.stFileUploader > label {
+                    color: white;
+                    font-weight: bold;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        file1 = st.file_uploader("Upload 'KTI Transactions 1.xlsx'", type="xlsx")
+        file2 = st.file_uploader("Upload 'KTI Transactions 2.xlsx'", type="xlsx")
+        if file1 and file2:
+            # Load the data
+            df1 = pd.read_excel(file1)
+            df2 = pd.read_excel(file2)
+
+            # Combine DataFrames
+            combined_df = pd.concat([df1, df2], ignore_index=True)
+
+            # Data Preprocessing for transactions
+            columns_to_drop = ['Owner', 'Lot', 'User', 'PACK KEY:', 'Source Key', 'ASN NO:', 'OWNER:']
+            df = combined_df.drop(columns=columns_to_drop, errors='ignore').dropna().drop_duplicates()
+            df['Date'] = pd.to_datetime(df['Date']).dt.date
+            df['Quantity'] = pd.to_numeric(df['Quantity'].str.replace(',', ''), errors='coerce').abs().astype(int)
+            df = df.dropna()
+
+            # Filter shipment data
+            shipment_data = df[
+                (df['Activity'] == 'Shipment') &
+                (df['Source Type'].isin(['ntrPickDetailUpdate', 'ntrTransferDetailAdd']))
+            ]
+            shipment_data['Date'] = pd.to_datetime(shipment_data['Date'])
+
+            # Aggregate daily demand per item
+            daily_item_demand = shipment_data.groupby(['Date', 'Item'])['Quantity'].sum().reset_index()
+
+            # Complete date range
+            date_range = pd.date_range(start=daily_item_demand['Date'].min(), end=daily_item_demand['Date'].max())
+            complete_item_demand = pd.DataFrame({
+                'Date': np.tile(date_range, len(daily_item_demand['Item'].unique())),
+                'Item': np.repeat(daily_item_demand['Item'].unique(), len(date_range))
+            })
+            merged_data = pd.merge(complete_item_demand, daily_item_demand, on=['Date', 'Item'], how='left')
+            merged_data['Quantity'].fillna(0, inplace=True)
+            pivoted_data = merged_data.pivot(index='Date', columns='Item', values='Quantity').fillna(0)
+
+            st.write("### Processed Data Preview:")
+            st.dataframe(pivoted_data.head())
+            # Normalize data
+            scaler = MinMaxScaler()
+            normalized_data = scaler.fit_transform(pivoted_data)
+
+            # LSTM Model and Forecast
+            sequence_length = 30
+            forecast_horizon = 7
+
+            def create_sequences(data, sequence_length):
+                X = []
+                for i in range(len(data) - sequence_length):
+                    X.append(data[i : i + sequence_length])
+                return np.array(X)
+
+            # Prepare last sequence for forecasting
+            last_sequence = normalized_data[-sequence_length:]
+            last_sequence = np.expand_dims(last_sequence, axis=0)
+
+            # Load pre-trained model
+            try:
+                model = tf.keras.models.load_model("forecast_model.h5", custom_objects={"mse": mse})
+                # Forecast
+                forecast_normalized = model.predict(last_sequence)
+                forecast_denormalized = scaler.inverse_transform(forecast_normalized[0])
+
+                # Round the forecasted demand to the nearest whole number and make values positive
+                forecast_denormalized = np.abs(forecast_denormalized).round()
+
+                # Create forecast DataFrame
+                last_date = pivoted_data.index[-1]
+                forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_horizon)
+                forecast_df = pd.DataFrame(forecast_denormalized, index=forecast_dates, columns=pivoted_data.columns)
+
+                st.write("### Forecasted Demand for Next 7 Days:")
+                st.dataframe(forecast_df)
+
+                # Plot forecast
+                st.subheader("Forecast Visualization")
+                selected_item = st.selectbox("Select Item to View Forecast", forecast_df.columns)
+
+                plt.figure(figsize=(10, 5))
+                plt.plot(forecast_df.index, forecast_df[selected_item], marker='o', label=f"Forecast for {selected_item}")
+                plt.title(f"Forecasted Demand for {selected_item}")
+                plt.xlabel("Date")
+                plt.ylabel("Demand")
+                plt.xticks(rotation=45)
+                plt.legend()
+                st.pyplot(plt)
+
+                # Provide download button for the forecast data
+                excel_file = to_excel(forecast_df)
+                st.download_button(
+                    label="Download Forecast Data as Excel",
+                    data=excel_file,
+                    file_name="forecasted_demand.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            except Exception as e:
+                    st.error(f"Error loading the model: {e}")
+            
+            # Load stock report file
+            stock_report_file = st.file_uploader("Upload Stock Report", type="xlsx")
+
+            # If stock report file is uploaded
+            if stock_report_file:
+                # Load stock report data
+                stock_report = pd.read_excel(stock_report_file)
+
+                # Display unique materials for selection
+                unique_materials = stock_report['Material'].unique()
+                selected_materials = st.multiselect("Select Materials", unique_materials)
+
+                if selected_materials:
+                    # Filter stock report data based on selected materials
+                    selected_stock_data = stock_report[stock_report['Material'].isin(selected_materials)]
+
+                    # Display the relevant stock data
+                    st.write("### Selected Materials Stock Report:")
+                    st.dataframe(selected_stock_data)
+
+                    # Forecast output for selected stock report materials
+                    stock_forecast_data = forecast_df[selected_materials]
+                    stock_excel_file = to_excel(stock_forecast_data)
+
+                    # Provide download button for stock forecast data
+                    st.download_button(
+                        label="Download Stock Forecast Data as Excel",
+                        data=stock_excel_file,
+                        file_name="selected_stock_forecast.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
+                    # Plot individual material forecast
+                    for material in selected_materials:
+                        st.subheader(f"Demand Forecast for {material}")
+                        if material in forecast_df.columns:
+                            plt.figure(figsize=(10, 5))
+                            plt.plot(forecast_df.index, forecast_df[material], marker='o', label=f"Forecast for {material}")
+                            plt.title(f"Forecasted Demand for {material}")
+                            plt.xlabel("Date")
+                            plt.ylabel("Demand")
+                            plt.xticks(rotation=45)
+                            plt.legend()
+                            st.pyplot(plt)
+                        else:
+                            st.warning(f"No forecast data available for material: {material}")
+            
 
     elif selected == "Inventory Management":
+        
         st.markdown(
             """
             <div class="content-box">
                 <h2>Inventory Management</h2>
-                <p>Details about inventory management go here.</p>
+                <p>Upload the current stock report and generated forecast report to dynamically prioritize replenishments.</p>
+                <div id="success-message" style="display: none; color: green; font-weight: bold;">
+                Replenishment Plan Generated!
+                </div>
+                <style>
+                .stButton button {
+                    width: auto !important;
+                    white-space: nowrap;
+                }
+                </style>
+
             </div>
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("""
+            <style>
+                div.stFileUploader {
+                    background-color: rgba(0, 0, 0, 0.8); /
+                    border-radius: 10px;
+                    padding: 10px;
+                }
+                div.stFileUploader > label {
+                    color: white;
+                    font-weight: bold;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+
+        # Streamlit UI for uploading files
+        stock_file = st.file_uploader("Upload Stock Report (CSV)", type="csv")
+        forecast_file = st.file_uploader("Upload Demand Forecast Report (Excel)", type="xlsx")
+
+        if stock_file and forecast_file:
+            # Load and process data
+            stock_data = pd.read_csv(stock_file)
+            forecasted_demand = pd.read_excel(forecast_file, sheet_name=0, index_col=0)
+
+            # Ensure numeric data for 'On Hand'
+            stock_data['On Hand'] = pd.to_numeric(stock_data['On Hand'], errors='coerce').fillna(0)
+
+            if st.button("Generate Replenishment Plan"):
+                # Define the replenishment environment class
+                class ReplenishmentEnv(gym.Env):
+                    def __init__(self, forecast, stock_mapping):
+                        super(ReplenishmentEnv, self).__init__()
+                        self.forecast = forecast
+                        self.stock_mapping = stock_mapping
+                        self.items = list(stock_mapping.keys())
+                        self.action_space = spaces.Discrete(len(self.items))
+                        self.observation_space = spaces.Box(
+                            low=0, high=np.inf, shape=(len(self.items),), dtype=np.float32
+                        )
+                        self.reset()
+
+                    def reset(self):
+                        self.remaining_demand = self.forecast.sum(axis=0).to_dict()
+                        self.stock_levels = {
+                            item: locations["high_rack"]["On Hand"].sum()
+                            for item, locations in self.stock_mapping.items()
+                        }
+                        return np.array(list(self.remaining_demand.values()), dtype=np.float32)
+
+                    def step(self, action):
+                        item = self.items[action]
+                        if item not in self.remaining_demand or self.remaining_demand[item] <= 0:
+                            return self._get_obs(), -10, True, {}
+
+                        demand = self.remaining_demand[item]
+                        stock = self.stock_levels.get(item, 0)
+
+                        if demand == 0:
+                            replenishment_quantity = 0
+                            reward = 0
+                        else:
+                            replenishment_quantity = min(demand, stock)
+                            if replenishment_quantity > 0:
+                                self.remaining_demand[item] -= replenishment_quantity
+                                self.stock_levels[item] -= replenishment_quantity
+                                reward = replenishment_quantity
+                            else:
+                                reward = -5
+
+                        done = all(v <= 0 for v in self.remaining_demand.values())
+                        return self._get_obs(), reward, done, {}
+
+                    def _get_obs(self):
+                        return np.array(list(self.remaining_demand.values()), dtype=np.float32)
+
+                # Helper functions
+                def create_mapping(high_rack, pick_piece):
+                    mapping = {}
+                    for item in high_rack["Material"].unique():
+                        high_rack_locations = high_rack[high_rack["Material"] == item]
+                        pick_piece_locations = pick_piece[pick_piece["Material"] == item]
+                        if not high_rack_locations.empty and not pick_piece_locations.empty:
+                            mapping[item] = {
+                                "high_rack": high_rack_locations,
+                                "pick_piece": pick_piece_locations.iloc[0]["Location"]
+                            }
+                    return mapping
+
+                def train_model(stock_data, forecasted_demand):
+                    high_rack_stock = stock_data[stock_data["Location Type (Not Location)"] == "High Rack"]
+                    pick_piece_stock = stock_data[stock_data["Location Type (Not Location)"] == "PICK - Piece"]
+                    mapped_locations = create_mapping(high_rack_stock, pick_piece_stock)
+
+                    env = ReplenishmentEnv(forecasted_demand, mapped_locations)
+                    q_table = {}
+                    learning_rate = 0.1
+                    discount_factor = 0.9
+                    epsilon = 1.0
+                    min_epsilon = 0.01
+                    epsilon_decay = 0.995
+
+                    num_episodes = 1000
+                    for episode in range(num_episodes):
+                        state = env.reset()
+                        discrete_state = tuple(state.astype(int))
+                        done = False
+                        while not done:
+                            if random.uniform(0, 1) < epsilon:
+                                action = env.action_space.sample()
+                            else:
+                                action = np.argmax(q_table.get(discrete_state, np.zeros(env.action_space.n)))
+
+                            next_state, reward, done, _ = env.step(action)
+                            discrete_next_state = tuple(next_state.astype(int))
+
+                            if discrete_state not in q_table:
+                                q_table[discrete_state] = np.zeros(env.action_space.n)
+                            if discrete_next_state not in q_table:
+                                q_table[discrete_next_state] = np.zeros(env.action_space.n)
+
+                            q_table[discrete_state][action] = (
+                                (1 - learning_rate) * q_table[discrete_state][action] +
+                                learning_rate * (reward + discount_factor * np.max(q_table[discrete_next_state]))
+                            )
+
+                            discrete_state = discrete_next_state
+
+                        epsilon = max(min_epsilon, epsilon * epsilon_decay)
+
+                    replenishment_plan = []
+                    for item in env.items:
+                        high_rack_location = mapped_locations[item]["high_rack"].iloc[0]["Location"]
+                        pick_piece_location = mapped_locations[item]["pick_piece"]
+                        replenishment_plan.append({
+                            "item": item,
+                            "from_location": high_rack_location,
+                            "to_location": pick_piece_location,
+                            "quantity": env.stock_levels[item]
+                        })
+
+                    # Convert to DataFrame and sort by quantity in descending order
+                    replenishment_plan_df = pd.DataFrame(replenishment_plan)
+                    replenishment_plan_df = replenishment_plan_df.sort_values(by="quantity", ascending=False)
+
+                    return replenishment_plan_df
+
+                # Generate the replenishment plan
+                replenishment_plan = train_model(stock_data, forecasted_demand)
+
+                # Display success message and the DataFrame
+                st.success("Replenishment Plan Generated!")
+                st.dataframe(replenishment_plan)
+
+                # Provide download option
+                replenishment_plan_file = "replenishment_plan.xlsx"
+                replenishment_plan.to_excel(replenishment_plan_file, index=False)
+                with open(replenishment_plan_file, "rb") as file:
+                    st.download_button(
+                        label="Download Replenishment Plan",
+                        data=file,
+                        file_name=replenishment_plan_file,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
 
     elif selected == "Customer Churn Prediction":
         st.markdown(
