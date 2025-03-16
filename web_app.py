@@ -2,6 +2,7 @@ import streamlit as st
 import base64
 from streamlit_option_menu import option_menu
 import os
+from warehouse_management import run_warehouse_management  # Import your warehouse management function
 
 # Set page configuration
 st.set_page_config(page_title="OptiFow AI", page_icon="🚚")
@@ -18,8 +19,6 @@ def get_base64_from_file(file_path):
 # Path to the background image
 background_image = "images/warehouse.jpg"  # Replace with your image file path
 base64_image = get_base64_from_file(background_image)
-
-
 
 # Apply custom CSS if the image is valid
 if base64_image:
@@ -99,13 +98,9 @@ if base64_image:
         font-size: 18px;
         text-align: left;
         padding: 20px;
-        
     }}
-    
-
     </style>
-""", unsafe_allow_html=True)
-
+    """, unsafe_allow_html=True)
 
 # Initialize session state for button click
 if "explore_clicked" not in st.session_state:
@@ -130,9 +125,8 @@ if not st.session_state.explore_clicked:
 
 else:
     with st.sidebar:
-
         selected = option_menu(
-            menu_title="OptiFlow AI     Intelligent Supply Chain Management System",
+            menu_title="OptiFlow AI - Intelligent Supply Chain Management System",
             options=[
                 "Home",
                 "Demand & Return Forecasting",
@@ -167,7 +161,6 @@ else:
                 },
             }
         )
-
 
     # Main content area
     if selected == "Home":
@@ -219,8 +212,40 @@ else:
         else:
             st.warning("GIF file not found. Please check the file path.")
 
-
-
+    elif selected == "Warehouse Management":
+        # Hide the sidebar and remove the background image for this section
+        st.markdown(
+            """
+            <style>
+            .stApp {{
+                background-image: none !important;
+                background-color: white !important;
+            }}
+            .stSidebar {{
+                display: none !important;
+            }}
+            .stButton > button {{
+                background-color: rgba(0, 0, 0, 0.6);
+                color: white;
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+                width: 20%;
+                border: 2px solid transparent;
+                border-radius: 5px;
+                padding: 10px;
+                font-size: 16px;
+                cursor: pointer;
+                transition: transform 0.2s ease-in-out, color 0.3s, border-color 0.3s;
+                position: relative;
+                overflow: hidden;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+        # Run the warehouse management code
+        run_warehouse_management()
 
     elif selected == "Demand & Return Forecasting":
         st.markdown(
@@ -239,17 +264,6 @@ else:
             <div class="content-box">
                 <h2>Inventory Management</h2>
                 <p>Details about inventory management go here.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    elif selected == "Warehouse Management":
-        st.markdown(
-            """
-            <div class="content-box">
-                <h2>Warehouse Management</h2>
-                <p>Details about warehouse management go here.</p>
             </div>
             """,
             unsafe_allow_html=True,
