@@ -616,13 +616,12 @@ else:
                             st.warning(f"No forecast data available for material: {material}")
 
     elif selected == "Inventory Management":
-        
         st.markdown(
             """
             <div class="content-box">
                 <h2>Inventory Management</h2>
                 <p>Upload the current stock report and generated forecast report to dynamically prioritize replenishments.</p>
-                <div id="success-message" style="display: none; color: green; font-weight: bold;">
+                <div id="success-message" style="display: none; color: #FFFFFF; font-weight: bold;">
                 Replenishment Plan Generated!
                 </div>
                 <style>
@@ -631,15 +630,16 @@ else:
                     white-space: nowrap;
                 }
                 </style>
-
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.markdown("""
+
+        st.markdown(
+            """
             <style>
                 div.stFileUploader {
-                    background-color: rgba(0, 0, 0, 0.8); /
+                    background-color: rgba(0, 0, 0, 0.8);
                     border-radius: 10px;
                     padding: 10px;
                 }
@@ -647,23 +647,28 @@ else:
                     color: white;
                     font-weight: bold;
                 }
+                .content-box {
+                    padding: 15px;
+                    border: 1px solid #ddd;
+                    border-radius: 10px;
+                    background-color: rgba(0, 0, 0, 0.8);
+                }
             </style>
-        """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
         # Streamlit UI for uploading files
         stock_file = st.file_uploader("Upload Stock Report (CSV)", type="csv")
         forecast_file = st.file_uploader("Upload Demand Forecast Report (Excel)", type="xlsx")
 
         if stock_file and forecast_file:
-            # Load and process data
             stock_data = pd.read_csv(stock_file)
             forecasted_demand = pd.read_excel(forecast_file, sheet_name=0, index_col=0)
 
-            # Ensure numeric data for 'On Hand'
             stock_data['On Hand'] = pd.to_numeric(stock_data['On Hand'], errors='coerce').fillna(0)
 
             if st.button("Generate Replenishment Plan"):
-                # Define the replenishment environment class
                 class ReplenishmentEnv(gym.Env):
                     def __init__(self, forecast, stock_mapping):
                         super(ReplenishmentEnv, self).__init__()
@@ -710,7 +715,6 @@ else:
                     def _get_obs(self):
                         return np.array(list(self.remaining_demand.values()), dtype=np.float32)
 
-                # Helper functions
                 def create_mapping(high_rack, pick_piece):
                     mapping = {}
                     for item in high_rack["Material"].unique():
@@ -775,20 +779,42 @@ else:
                             "quantity": env.stock_levels[item]
                         })
 
-                    # Convert to DataFrame and sort by quantity in descending order
                     replenishment_plan_df = pd.DataFrame(replenishment_plan)
                     replenishment_plan_df = replenishment_plan_df.sort_values(by="quantity", ascending=False)
 
                     return replenishment_plan_df
 
-                # Generate the replenishment plan
                 replenishment_plan = train_model(stock_data, forecasted_demand)
 
-                # Display success message and the DataFrame
-                st.success("Replenishment Plan Generated!")
-                st.dataframe(replenishment_plan)
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <h4 style="color: white;">Replenishment Plan Generated!</h4>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                # Provide download option
+                st.dataframe(replenishment_plan)
+                st.markdown(
+                    """
+                    <style>
+                        .stDownloadButton {
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                        }
+                        .stDownloadButton button {
+                            background-color: rgba(0, 0, 0, 0.8);
+                            color: white !important;
+                            border-radius: 5px !important;
+                            border: none !important;
+                            padding: 10px !important;
+                        }
+                    </style>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 replenishment_plan_file = "replenishment_plan.xlsx"
                 replenishment_plan.to_excel(replenishment_plan_file, index=False)
                 with open(replenishment_plan_file, "rb") as file:
