@@ -1,0 +1,13 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+mlxtend
+networkx
+plotly
+tensorflow
+gym
+streamlit-option-menu
+openpyxl
