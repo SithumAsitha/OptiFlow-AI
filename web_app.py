@@ -12,7 +12,7 @@ import io
 import random
 import gym
 from gym import spaces
-
+import joblib
 
 # Set page configuration
 st.set_page_config(page_title="OptiFow AI", page_icon="🚚")
@@ -829,10 +829,218 @@ else:
     elif selected == "Customer Churn Prediction":
         st.markdown(
             """
-            <div class="content-box">
-                <h2>Customer Churn Prediction</h2>
-                <p>Details about customer churn prediction go here.</p>
-            </div>
+            <style>
+            .churn-container {
+                background-color: rgba(0, 0, 0, 0.8); /* Dark semi-transparent background */
+                padding: 20px;
+                border-radius: 10px;
+                margin: 20px 0;
+            }
+            </style>
             """,
             unsafe_allow_html=True,
         )
+
+        try:
+            # Load pre-trained models and scaler
+            rf_model = joblib.load("Churn_Models/random_forest_model.pkl")
+            nn_model = tf.keras.models.load_model(
+                "Churn_Models/neural_network_model.h5")
+            scaler = joblib.load("Churn_Models/scaler.pkl")
+        except Exception as e:
+            st.error(f"Error loading models: {e}")
+            st.stop()
+
+        # Load dataset for company filtering
+        try:
+            df = pd.read_csv("ShipmentDetailsKTI.csv")
+            df["DeliveryDelay"] = (pd.to_datetime(
+                df["ActualShipDate"]) - pd.to_datetime(df["RequestedDeliveryDate"])).dt.days
+        except Exception as e:
+            st.error(f"Error loading dataset: {e}")
+            st.stop()
+
+        # Create tabs for individual and company-level predictions
+        tab1, tab2 = st.tabs(
+            ["Individual Prediction", "Company-Level Prediction"])
+
+        with tab1:
+            # Individual Prediction Section
+            with st.container():
+                st.markdown("""<div class="content-box">
+                <h2>Individual Record Churn Prediction</h2>
+                <p>Predict customer churn based on shipment details and delivery performance.</p>
+            </div>""", unsafe_allow_html=True)
+                st.markdown("### Individual Customer Churn Prediction")
+                st.write(
+                    "Predict churn for a single customer based on shipment details.")
+
+                # Create two columns for date inputs
+                col1, col2 = st.columns(2)
+                with col1:
+                    actual_ship_date = st.date_input(
+                        "Actual Ship Date", value=pd.to_datetime("today"))
+                with col2:
+                    requested_delivery_date = st.date_input(
+                        "Requested Delivery Date", value=pd.to_datetime("today"))
+
+                # Calculate delivery delay
+                delivery_delay = (actual_ship_date -
+                                  requested_delivery_date).days
+                st.write(
+                    f"**Calculated Delivery Delay:** {delivery_delay} days")
+
+                # Numerical input fields
+                total_quantity = st.number_input(
+                    "Total Quantity", min_value=0, value=100)
+                total_order_lines = st.number_input(
+                    "Total Order Lines", min_value=0, value=5)
+                total_cube = st.number_input(
+                    "Total Cube (CBM)", min_value=0.0, value=10.0)
+                total_gross_weight = st.number_input(
+                    "Total Gross Weight (KG)", min_value=0.0, value=50.0)
+
+                if st.button("Predict Individual Churn"):
+                    # Prepare input DataFrame
+                    input_data = pd.DataFrame([[total_quantity, total_order_lines, total_cube,
+                                                total_gross_weight, delivery_delay]],
+                                              columns=["TotalQuantity", "TotalOrderLines",
+                                                       "TotalCube", "TotalGrossWeight", "DeliveryDelay"])
+
+                    # Scale features
+                    scaled_input = scaler.transform(input_data)
+
+                    # Get predictions
+                    rf_proba = rf_model.predict_proba(scaled_input)[0][1]
+                    nn_proba = nn_model.predict(scaled_input, verbose=0)[0][0]
+                    hybrid_proba = (rf_proba + nn_proba) / 2
+                    final_prediction = "Churn" if hybrid_proba > 0.5 else "No Churn"
+
+                    # Display results with styling
+                    st.markdown("### Prediction Results")
+
+                    # Create columns for metrics
+                    col1, col2, col3 = st.columns(3)
+
+                    with col1:
+                        st.metric(label="Random Forest Prediction",
+                                  value=f"{rf_proba:.1%}",
+                                  delta="Churn Probability")
+
+                    with col2:
+                        st.metric(label="Neural Network Prediction",
+                                  value=f"{nn_proba:.1%}",
+                                  delta="Churn Probability")
+
+                    with col3:
+                        st.metric(label="Hybrid AI Prediction",
+                                  value=final_prediction,
+                                  delta=f"Confidence: {hybrid_proba:.1%}",
+                                  delta_color="off")
+
+                    # Visual feedback
+                    if final_prediction == "Churn":
+                        st.error(
+                            "High risk of customer churn! Consider proactive retention measures.")
+                    else:
+                        st.success(
+                            "Low churn risk detected. Customer appears satisfied with service.")
+
+                    # Add explanation section
+                    with st.expander("Understanding the Predictions"):
+                        st.markdown("""
+                        **Prediction Breakdown:**
+                        - **Random Forest:** Ensemble decision tree model (Accuracy: ~74%)
+                        - **Neural Network:** Deep learning model with 3 hidden layers
+                        - **Hybrid AI:** Combined prediction average for enhanced accuracy
+                        
+                        **Key Factors Considered:**
+                        - Delivery timeliness (delay calculation)
+                        - Order volume and complexity
+                        - Shipment dimensions and weight
+                        """)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        with tab2:
+            # Company-Level Prediction Section
+            with st.container():
+                st.markdown(
+                    """<div class="content-box">
+                <h2>Company Churn Prediction</h2>
+                <p>Predict customer churn based on shipment details and delivery performance.</p>
+            </div>
+            """, unsafe_allow_html=True)
+                st.markdown("### Company-Level Churn Prediction")
+                st.write("Predict churn for all records of a selected company.")
+
+                # Dropdown for company selection
+                company_list = df["Company"].unique().tolist()
+                selected_company = st.selectbox(
+                    "Select a Company", company_list)
+
+                if st.button("Predict Company Churn"):
+                    # Filter records for the selected company
+                    company_records = df[df["Company"] == selected_company]
+
+                    if company_records.empty:
+                        st.warning(
+                            f"No records found for company: {selected_company}")
+                    else:
+                        # Prepare input features
+                        X_company = company_records[[
+                            "TotalQuantity", "TotalOrderLines", "TotalCube", "TotalGrossWeight", "DeliveryDelay"]]
+                        X_company_scaled = scaler.transform(X_company)
+
+                        # Get predictions from both models
+                        rf_preds = rf_model.predict_proba(
+                            X_company_scaled)[:, 1]
+                        nn_preds = nn_model.predict(X_company_scaled).flatten()
+
+                        # Hybrid Model: Average predictions
+                        hybrid_preds = (rf_preds + nn_preds) / 2
+                        # Convert to binary classification
+                        hybrid_preds_binary = np.where(
+                            hybrid_preds > 0.5, 1, 0)
+
+                        # Count occurrences of Churn (1) and No Churn (0)
+                        churn_count = np.sum(hybrid_preds_binary)
+                        no_churn_count = len(hybrid_preds_binary) - churn_count
+
+                        # Final Decision: Majority vote
+                        final_decision = "Churn" if churn_count > no_churn_count else "No Churn"
+
+                        # Display results
+                        st.markdown("### Prediction Results")
+                        st.metric(label="Final Decision", value=final_decision)
+
+                        # Create columns for detailed metrics
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric(label="Total Records",
+                                      value=len(hybrid_preds_binary))
+                        with col2:
+                            st.metric(label="Churn Predictions",
+                                      value=int(churn_count))
+
+                        # Visual feedback
+                        if final_decision == "Churn":
+                            st.error(
+                                f"**Warning:** {selected_company} has a high risk of churn. Proactive measures are recommended.")
+                        else:
+                            st.success(
+                                f"**Good News:** {selected_company} has a low risk of churn.")
+
+                        # Show detailed predictions in an expandable section
+                        with st.expander("View Detailed Predictions"):
+                            st.write(
+                                "### Detailed Predictions for Each Record")
+                            results_df = pd.DataFrame({
+                                "Record ID": company_records.index,
+                                "Random Forest Probability": rf_preds,
+                                "Neural Network Probability": nn_preds,
+                                "Hybrid Probability": hybrid_preds,
+                                "Prediction": ["Churn" if x == 1 else "No Churn" for x in hybrid_preds_binary]
+                            })
+                            st.dataframe(results_df)
+
+                st.markdown('</div>', unsafe_allow_html=True)
