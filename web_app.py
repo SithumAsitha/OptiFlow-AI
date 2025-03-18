@@ -283,6 +283,7 @@ else:
             """
             <div class="content-box">
                 <h2>Demand Forecasting</h2>
+                <p>Upload your transaction data now and unlock AI-powered demand forecasting for the next 7 days!</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -337,7 +338,25 @@ else:
             merged_data['Quantity'].fillna(0, inplace=True)
             pivoted_data = merged_data.pivot(index='Date', columns='Item', values='Quantity').fillna(0)
 
-            st.write("### Processed Data Preview:")
+            st.markdown(
+            """
+            <div class="content-box">
+                <h2>Uploaded Data Preview</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+            )
+            st.dataframe(df.head())
+            st.markdown(
+            """
+            <div class="content-box">
+                <h2>Processed Demand for each Item by Date</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+            )
             st.dataframe(pivoted_data.head())
             # Normalize data
             scaler = MinMaxScaler()
@@ -371,12 +390,27 @@ else:
                 last_date = pivoted_data.index[-1]
                 forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_horizon)
                 forecast_df = pd.DataFrame(forecast_denormalized, index=forecast_dates, columns=pivoted_data.columns)
-
-                st.write("### Forecasted Demand for Next 7 Days:")
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Forecasted Demand for Next 7 Days per each Item</h2>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
                 st.dataframe(forecast_df)
 
                 # Plot forecast
-                st.subheader("Forecast Visualization")
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Forecast Visualization by Item</h2>
+                                <p>Select Item to View Forecast</p>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
                 selected_item = st.selectbox("Select Item to View Forecast", forecast_df.columns)
 
                 plt.figure(figsize=(10, 5))
@@ -387,7 +421,25 @@ else:
                 plt.xticks(rotation=45)
                 plt.legend()
                 st.pyplot(plt)
-
+                st.markdown(
+                                    """
+                                    <style>
+                                        .stDownloadButton {
+                                            display: flex;
+                                            justify-content: center;
+                                            align-items: center;
+                                        }
+                                        .stDownloadButton button {
+                                            background-color: rgba(0, 0, 0, 0.8);
+                                            color: white !important;
+                                            border-radius: 5px !important;
+                                            border: none !important;
+                                            padding: 10px !important;
+                                        }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True,
+                )
                 # Provide download button for the forecast data
                 excel_file = to_excel(forecast_df)
                 st.download_button(
@@ -409,6 +461,15 @@ else:
 
                 # Display unique materials for selection
                 unique_materials = stock_report['Material'].unique()
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <p>Select Materials</p>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
                 selected_materials = st.multiselect("Select Materials", unique_materials)
 
                 if selected_materials:
@@ -416,14 +477,40 @@ else:
                     selected_stock_data = stock_report[stock_report['Material'].isin(selected_materials)]
 
                     # Display the relevant stock data
-                    st.write("### Selected Materials Stock Report:")
+                    st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Selected Materials Stock Report</h2>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                    )
                     st.dataframe(selected_stock_data)
 
                     # Forecast output for selected stock report materials
                     stock_forecast_data = forecast_df[selected_materials]
                     stock_excel_file = to_excel(stock_forecast_data)
-
-                    # Provide download button for stock forecast data
+                    st.markdown(
+                                    """
+                                    <style>
+                                        .stDownloadButton {
+                                            display: flex;
+                                            justify-content: center;
+                                            align-items: center;
+                                        }
+                                        .stDownloadButton button {
+                                            background-color: rgba(0, 0, 0, 0.8);
+                                            color: white !important;
+                                            border-radius: 5px !important;
+                                            border: none !important;
+                                            padding: 10px !important;
+                                        }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True,
+                    )
+                    # Pro  vide download button for stock forecast data
                     st.download_button(
                         label="Download Stock Forecast Data as Excel",
                         data=stock_excel_file,
@@ -433,7 +520,15 @@ else:
 
                     # Plot individual material forecast
                     for material in selected_materials:
-                        st.subheader(f"Demand Forecast for {material}")
+                        st.markdown(
+                        """
+                        <div class="content-box">
+                            <h2>Demand Forecast for selected materials</h2>
+                            
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                        )
                         if material in forecast_df.columns:
                             plt.figure(figsize=(10, 5))
                             plt.plot(forecast_df.index, forecast_df[material], marker='o', label=f"Forecast for {material}")
@@ -452,6 +547,7 @@ else:
             """
             <div class="content-box">
                 <h2>Return Forecasting</h2>
+                <p>Upload your return data now and gain AI-driven insights to forecast product returns for the next 7 days!</p>
             </div>
             """,
             unsafe_allow_html=True,
@@ -506,7 +602,15 @@ else:
             merged_data['Quantity'].fillna(0, inplace=True)
             pivoted_data = merged_data.pivot(index='Date', columns='Item', values='Quantity').fillna(0)
 
-            st.write("### Processed Data Preview:")
+            st.markdown(
+            """
+            <div class="content-box">
+                <h2>Processed Returns for each Item by Date</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+            )
             st.dataframe(pivoted_data.head())
             # Normalize data
             scaler = MinMaxScaler()
@@ -541,11 +645,27 @@ else:
                 forecast_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=forecast_horizon)
                 forecast_df = pd.DataFrame(forecast_denormalized, index=forecast_dates, columns=pivoted_data.columns)
 
-                st.write("### Forecasted Return for Next 7 Days:")
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Forecasted Returns for Next 7 Days per each Item</h2>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 st.dataframe(forecast_df)
 
                 # Plot forecast
-                st.subheader("Forecast Visualization")
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Forecast Visualization by Item</h2>
+                        <p>Select Item to View Forecast</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 selected_item = st.selectbox("Select Item to View Forecast", forecast_df.columns)
 
                 plt.figure(figsize=(10, 5))
@@ -556,7 +676,25 @@ else:
                 plt.xticks(rotation=45)
                 plt.legend()
                 st.pyplot(plt)
-
+                st.markdown(
+                                    """
+                                    <style>
+                                        .stDownloadButton {
+                                            display: flex;
+                                            justify-content: center;
+                                            align-items: center;
+                                        }
+                                        .stDownloadButton button {
+                                            background-color: rgba(0, 0, 0, 0.8);
+                                            color: white !important;
+                                            border-radius: 5px !important;
+                                            border: none !important;
+                                            padding: 10px !important;
+                                        }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True,
+                )
                 # Provide download button for the forecast data
                 excel_file = to_excel(forecast_df)
                 st.download_button(
@@ -578,6 +716,15 @@ else:
 
                 # Display unique materials for selection
                 unique_materials = stock_report['Material'].unique()
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <p>Select Materials</p>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
                 selected_materials = st.multiselect("Select Materials", unique_materials)
 
                 if selected_materials:
@@ -585,13 +732,39 @@ else:
                     selected_stock_data = stock_report[stock_report['Material'].isin(selected_materials)]
 
                     # Display the relevant stock data
-                    st.write("### Selected Materials Stock Report:")
+                    st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Selected Materials Stock Report</h2>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     st.dataframe(selected_stock_data)
 
                     # Forecast output for selected stock report materials
                     stock_forecast_data = forecast_df[selected_materials]
                     stock_excel_file = to_excel(stock_forecast_data)
-
+                    st.markdown(
+                                    """
+                                    <style>
+                                        .stDownloadButton {
+                                            display: flex;
+                                            justify-content: center;
+                                            align-items: center;
+                                        }
+                                        .stDownloadButton button {
+                                            background-color: rgba(0, 0, 0, 0.8);
+                                            color: white !important;
+                                            border-radius: 5px !important;
+                                            border: none !important;
+                                            padding: 10px !important;
+                                        }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True,
+                    )
                     # Provide download button for stock forecast data
                     st.download_button(
                         label="Download Stock Forecast Data as Excel",
@@ -602,7 +775,15 @@ else:
 
                     # Plot individual material forecast
                     for material in selected_materials:
-                        st.subheader(f"Return Forecast for {material}")
+                        st.markdown(
+                        """
+                        <div class="content-box">
+                            <h2>Return Forecast for selected materials</h2>
+                            
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                        )
                         if material in forecast_df.columns:
                             plt.figure(figsize=(10, 5))
                             plt.plot(forecast_df.index, forecast_df[material], marker='o', label=f"Forecast for {material}")
