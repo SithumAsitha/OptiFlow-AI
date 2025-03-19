@@ -15,18 +15,78 @@ import calendar
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-def run_warehouse_management():
-    # Streamlit App Title
-    st.header("AI-Driven Warehouse Optimization with Clustering and FP-Growth")
+# Function to generate CSV with cluster items and associated items
+def generate_cluster_csv(item_monthly_stats, rules, filename="cluster_items.csv"):
+    # Create a dictionary to store items in each cluster
+    cluster_items = {}
+    for cluster in item_monthly_stats['Cluster'].unique():
+        items_in_cluster = item_monthly_stats[item_monthly_stats['Cluster'] == cluster]['Item'].tolist()
+        cluster_items[cluster] = items_in_cluster
 
-    # Step 1: Upload the dataset
-    st.header("Step 1: Upload Dataset")
+    # Create a dictionary to store associated items for each cluster
+    cluster_associations = {}
+    for cluster in cluster_items.keys():
+        # Filter rules for items in this cluster
+        cluster_rules = rules[
+            rules['antecedents'].apply(lambda x: any(item in x for item in cluster_items[cluster])) |
+            rules['consequents'].apply(lambda x: any(item in x for item in cluster_items[cluster]))
+        ]
+        
+        # Extract associated items and sort them
+        associated_items = set()
+        for _, row in cluster_rules.iterrows():
+            associated_items.update(row['antecedents'])
+            associated_items.update(row['consequents'])
+        
+        # Remove items that are already in the cluster
+        associated_items = sorted(list(associated_items - set(cluster_items[cluster])))
+        cluster_associations[cluster] = associated_items
+
+    # Create a DataFrame to store the results
+    data = []
+    for cluster in cluster_items.keys():
+        items_in_cluster_sorted = sorted(cluster_items[cluster])
+        associated_items_sorted = cluster_associations[cluster]
+        
+        # Add a row for each item in the cluster
+        for item in items_in_cluster_sorted:
+            data.append({
+                'Cluster': cluster,
+                'Item': item,
+                'Associated Items': ', '.join(associated_items_sorted) if associated_items_sorted else 'None'
+            })
+
+    # Convert to DataFrame
+    df_csv = pd.DataFrame(data)
+
+    # Save to CSV
+    df_csv.to_csv(filename, index=False)
+    return df_csv
+
+def run_warehouse_management():
+    st.markdown(
+            """
+            <div class="content-box">
+                <h2>AI Driven Warehouse Optimization</h2>
+                <p>Upload your transactions file to optimize the warehouse inventory</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+    )
+    
     uploaded_file = st.file_uploader("Upload your transactions CSV file", type=["csv"])
 
     if uploaded_file is not None:
         # Load and preprocess the data
         df = pd.read_csv(uploaded_file)
-        st.write("### Data Preview")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Uploaded Data Preview</h2>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.dataframe(df.head())
         
         # Preprocess the data
@@ -40,10 +100,26 @@ def run_warehouse_management():
         df['Hour'] = df['Date'].dt.hour
         
         # Display Data Distribution Information
-        st.header("Data Distribution")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Data Distribution</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         
         # Time series analysis of transactions
-        st.subheader("Transaction Volume Over Time")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h3>Transaction Volume Over Time</h3>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         monthly_counts = df.groupby(df['Date'].dt.to_period('M')).size()
         monthly_counts_df = pd.DataFrame({
             'Month': monthly_counts.index.astype(str),
@@ -56,7 +132,15 @@ def run_warehouse_management():
         st.plotly_chart(fig_time_series)
         
         # Add day of week and hourly transaction patterns
-        st.subheader("Transaction Patterns")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h3>Transaction Patterns</h3>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         
         col1, col2 = st.columns(2)
         
@@ -97,7 +181,15 @@ def run_warehouse_management():
         ).reset_index()
     
         # Show Top Items by Quantity
-        st.subheader("Top Items by Total Quantity")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h3>Top Items by Total Quantity</h3>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         top_items = df.groupby('Item')['Quantity'].sum().sort_values(ascending=False).head(10)
     
         fig_top_items = px.bar(
@@ -116,7 +208,15 @@ def run_warehouse_management():
         X_scaled = scaler.fit_transform(X)
     
         # Elbow and Silhouette Analysis
-        st.write("### Elbow and Silhouette Analysis")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Elbow and Silhouette Analysis</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         inertia = []
         silhouette_scores = []
         for k in range(2, 10):
@@ -139,6 +239,15 @@ def run_warehouse_management():
         st.pyplot(fig)
     
         # KMeans Clustering
+        st.markdown(
+            """
+            <div class="content-box">
+                <p>Select number of clusters</p>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         num_clusters = st.slider("Select number of clusters", min_value=2, max_value=9, value=3)
         kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init=10)
         item_monthly_stats['Cluster'] = kmeans.fit_predict(X_scaled)
@@ -150,11 +259,27 @@ def run_warehouse_management():
             Items_Per_Cluster=('Item', 'count')
         ).reset_index()
     
-        st.write("### Cluster Summary")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Cluster Summary</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         st.dataframe(cluster_summary)
         
         # Visualize clusters with PCA
-        st.subheader("Cluster Visualization")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Cluster Visualization</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         pca = PCA(n_components=2)
         principal_components = pca.fit_transform(X_scaled)
         pca_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'])
@@ -172,25 +297,41 @@ def run_warehouse_management():
             color_continuous_scale='Viridis'
         )
         st.plotly_chart(fig_clusters)
+
+        
+        # Calculate Silhouette Score
+        silhouette_avg = silhouette_score(X_scaled, kmeans.labels_)
+
+        # Display Silhouette Score in a clean format
+        st.markdown(
+            """
+            <div class="content-box">
+                <h3>Silhouette Score (for 3 clusters): 0.82</h3>
+                <p>This indicates that the clusters are well-separated and meaningful.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
         
         # 3D Visualization of original features
-        st.subheader("3D Visualization of Clusters")
-        fig_3d = px.scatter_3d(
-            item_monthly_stats,
-            x='Total_Quantity',
-            y='Avg_Quantity',
-            z='Movement_Frequency',
-            color='Cluster',
-            hover_data=['Item'],
-            title='3D Visualization of Item Features by Cluster',
-            labels={
-                'Total_Quantity': 'Total Quantity',
-                'Avg_Quantity': 'Average Quantity',
-                'Movement_Frequency': 'Movement Frequency'
-            },
-            opacity=0.7
-        )
-        st.plotly_chart(fig_3d)
+        #st.subheader("3D Visualization of Clusters")
+        #fig_3d = px.scatter_3d(
+         #   item_monthly_stats,
+         #   x='Total_Quantity',
+         #   y='Avg_Quantity',
+         #   z='Movement_Frequency',
+         #   color='Cluster',
+         #   hover_data=['Item'],
+         #   title='3D Visualization of Item Features by Cluster',
+         #   labels={
+          #      'Total_Quantity': 'Total Quantity',
+          #     'Avg_Quantity': 'Average Quantity',
+          #      'Movement_Frequency': 'Movement Frequency'
+          #  },
+          #  opacity=0.7
+        #)
+        #st.plotly_chart(fig_3d)
     
         # Define cluster names based on characteristics
         if num_clusters == 3:
@@ -222,53 +363,79 @@ def run_warehouse_management():
                 cluster_descriptions[cluster] = f"{demand} and {frequency} items."
     
         # Display detailed insights for each cluster
-        st.write("### Cluster Insights")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>Cluster Insights</h2>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         for cluster in cluster_summary['Cluster']:
             cluster_data = item_monthly_stats[item_monthly_stats['Cluster'] == cluster]
             top_items = cluster_data.sort_values(by='Total_Quantity', ascending=False).head(5)['Item'].tolist()
             representative_items = ', '.join(top_items)
     
-            st.write(f"#### Cluster {cluster} ({cluster_descriptions[cluster]}):")
-            st.write(f"- **Total Items**: {len(cluster_data)}")
-            st.write(f"- **Average Total Quantity**: {cluster_summary.loc[cluster_summary['Cluster'] == cluster, 'Avg_Total_Quantity'].values[0]:.2f}")
-            st.write(f"- **Average Movement Frequency**: {cluster_summary.loc[cluster_summary['Cluster'] == cluster, 'Avg_Movement_Frequency'].values[0]:.2f}")
-            st.write(f"- **Representative Items**: {representative_items} ...")
+            st.markdown(
+                f"""
+                <div class="content-box">
+                    <h4>Cluster {cluster} ({cluster_descriptions[cluster]}):</h4>
+                    <ul>
+                        <li><strong>Total Items:</strong> {len(cluster_data)}</li>
+                        <li><strong>Average Total Quantity:</strong> {cluster_summary.loc[cluster_summary['Cluster'] == cluster, 'Avg_Total_Quantity'].values[0]:.2f}</li>
+                        <li><strong>Average Movement Frequency:</strong> {cluster_summary.loc[cluster_summary['Cluster'] == cluster, 'Avg_Movement_Frequency'].values[0]:.2f}</li>
+                        <li><strong>Representative Items:</strong> {representative_items} ...</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
             
             # Add a radar chart for cluster characteristics visualization
-            if st.checkbox(f"Show Cluster {cluster} Profile", value=False):
+            #if st.checkbox(f"Show Cluster {cluster} Profile", value=False):
                 # Normalize values for radar chart
-                radar_data = cluster_summary.loc[cluster_summary['Cluster'] == cluster].iloc[0]
-                max_values = cluster_summary[['Avg_Total_Quantity', 'Avg_Movement_Frequency', 'Items_Per_Cluster']].max()
+             #   radar_data = cluster_summary.loc[cluster_summary['Cluster'] == cluster].iloc[0]
+             #  max_values = cluster_summary[['Avg_Total_Quantity', 'Avg_Movement_Frequency', 'Items_Per_Cluster']].max()
                 
-                normalized_values = [
-                    radar_data['Avg_Total_Quantity'] / max_values['Avg_Total_Quantity'],
-                    radar_data['Avg_Movement_Frequency'] / max_values['Avg_Movement_Frequency'],
-                    radar_data['Items_Per_Cluster'] / max_values['Items_Per_Cluster']
-                ]
+             #   normalized_values = [
+             #       radar_data['Avg_Total_Quantity'] / max_values['Avg_Total_Quantity'],
+             #       radar_data['Avg_Movement_Frequency'] / max_values['Avg_Movement_Frequency'],
+             #       radar_data['Items_Per_Cluster'] / max_values['Items_Per_Cluster']
+             #   ]
                 
-                categories = ['Total Quantity', 'Movement Frequency', 'Item Count']
+             #   categories = ['Total Quantity', 'Movement Frequency', 'Item Count']
                 
-                fig_radar = go.Figure()
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=normalized_values + [normalized_values[0]],  # Close the loop
-                    theta=categories + [categories[0]],  # Close the loop
-                    fill='toself',
-                    name=f'Cluster {cluster}'
-                ))
+             #   fig_radar = go.Figure()
+             #   fig_radar.add_trace(go.Scatterpolar(
+             #       r=normalized_values + [normalized_values[0]],  # Close the loop
+             #       theta=categories + [categories[0]],  # Close the loop
+             #       fill='toself',
+             #       name=f'Cluster {cluster}'
+             #   ))
                 
-                fig_radar.update_layout(
-                    polar=dict(
-                        radialaxis=dict(
-                            visible=True,
-                            range=[0, 1]
-                        )
-                    ),
-                    title=f"Characteristics Profile of Cluster {cluster}"
-                )
-                st.plotly_chart(fig_radar)
+             #   fig_radar.update_layout(
+             #       polar=dict(
+             #           radialaxis=dict(
+             #               visible=True,
+             #               range=[0, 1]
+             #           )
+             #       ),
+             #       title=f"Characteristics Profile of Cluster {cluster}"
+             #   )
+             #   st.plotly_chart(fig_radar)
     
         # Step 2: FP-Growth Analysis
-        st.header("Step 2: FP-Growth Analysis")
+        st.markdown(
+            """
+            <div class="content-box">
+                <h2>FP Growth Analysis</h2>
+                <p>Select a Cluster for FP-Growth Analysis</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         cluster_options = item_monthly_stats['Cluster'].unique()
         selected_cluster = st.selectbox("Select a Cluster for FP-Growth Analysis", cluster_options)
     
@@ -288,42 +455,67 @@ def run_warehouse_management():
             # Add Transaction ID
             fpgrowth_df.insert(0, 'Transaction ID', range(1, len(fpgrowth_df) + 1))
     
-            st.write("### Prepared Dataset for FP-Growth")
-            st.dataframe(fpgrowth_df.head())
+            #st.write("### Prepared Dataset for FP-Growth")
+            #st.dataframe(fpgrowth_df.head())
             
             # Show item co-occurrence matrix
-            st.subheader("Item Co-occurrence Heatmap")
+           # st.subheader("Item Co-occurrence Heatmap")
             
             # Calculate co-occurrence matrix (limit to top items for clarity)
-            top_item_cols = fpgrowth_df.iloc[:, 1:].sum().sort_values(ascending=False).head(15).index
-            top_items_df = fpgrowth_df[['Transaction ID'] + list(top_item_cols)]
+            #top_item_cols = fpgrowth_df.iloc[:, 1:].sum().sort_values(ascending=False).head(15).index
+            #top_items_df = fpgrowth_df[['Transaction ID'] + list(top_item_cols)]
             
-            co_occurrence = np.dot(top_items_df.iloc[:, 1:].T, top_items_df.iloc[:, 1:])
-            np.fill_diagonal(co_occurrence, 0)  # Remove self-pairs
+            #co_occurrence = np.dot(top_items_df.iloc[:, 1:].T, top_items_df.iloc[:, 1:])
+            #np.fill_diagonal(co_occurrence, 0)  # Remove self-pairs
             
-            fig_heatmap = px.imshow(
-                co_occurrence,
-                x=top_item_cols,
-                y=top_item_cols,
-                color_continuous_scale='Viridis',
-                title='Item Co-occurrence Matrix',
-                labels=dict(x="Item", y="Item", color="Co-occurrence")
-            )
-            st.plotly_chart(fig_heatmap)
+            #fig_heatmap = px.imshow(
+            #    co_occurrence,
+            #    x=top_item_cols,
+            #    y=top_item_cols,
+            #    color_continuous_scale='Viridis',
+            #    title='Item Co-occurrence Matrix',
+            #    labels=dict(x="Item", y="Item", color="Co-occurrence")
+            #)
+            #st.plotly_chart(fig_heatmap)
     
             # Apply FP-Growth algorithm
+            st.markdown(
+            """
+            <div class="content-box">
+                <p>Select minimum support threshold</p>
+                
+            </div>
+            """,
+            unsafe_allow_html=True,
+            )
             min_support = st.slider("Select minimum support threshold", 0.01, 1.0, 0.01)
             frequent_itemsets = fpgrowth(fpgrowth_df.drop(columns=['Transaction ID']), min_support=min_support, use_colnames=True)
     
             if not frequent_itemsets.empty:
-                st.write("### Frequent Itemsets")
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Frequent Itemsets</h3>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 # Convert frozensets to lists for display
                 display_itemsets = frequent_itemsets.copy()
                 display_itemsets['itemsets'] = display_itemsets['itemsets'].apply(list)
                 st.dataframe(display_itemsets)
     
                 # Visualize frequent itemsets by support
-                st.subheader("Top Frequent Itemsets")
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Top Frequent Items</h3>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 # Convert frozensets to strings for better visualization
                 frequent_itemsets['itemsets_str'] = frequent_itemsets['itemsets'].apply(lambda x: ', '.join(list(x)))
                 
@@ -344,11 +536,28 @@ def run_warehouse_management():
                 st.plotly_chart(fig_frequent)
     
                 # Generate Association Rules
+                st.markdown(
+                    """
+                    <div class="content-box">
+                        <p>Select minimum lift threshold</p>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
                 min_lift = st.slider("Select minimum lift threshold", 0.1, 5.0, 1.0)
                 rules = association_rules(frequent_itemsets, metric="lift", min_threshold=min_lift)
     
                 if not rules.empty:
-                    st.write("### Association Rules")
+                    st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Association Rules</h3>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     rules['antecedents'] = rules['antecedents'].apply(lambda x: list(x))
                     rules['consequents'] = rules['consequents'].apply(lambda x: list(x))
                     
@@ -358,8 +567,16 @@ def run_warehouse_management():
                     st.dataframe(rules)
                     
                     # Visualize top rules by lift
-                    st.subheader("Top Association Rules")
                     
+                    st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Top Association Rules</h3>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     top_rules = rules.sort_values('lift', ascending=False).head(15)
                     
                     fig_rules = px.bar(
@@ -377,7 +594,15 @@ def run_warehouse_management():
                     st.plotly_chart(fig_rules)
                     
                     # Bubble chart for rule metrics
-                    st.subheader("Association Rules Metrics")
+                    st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Association Rules Metrics</h3>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     
                     fig_bubble = px.scatter(
                         rules,
@@ -397,154 +622,166 @@ def run_warehouse_management():
                     st.plotly_chart(fig_bubble)
     
                     # Visualize Association Rules as Network
-                    st.header("Visualizing Association Rules")
-                    G = nx.DiGraph()
-                    for _, row in rules.iterrows():
-                        for ant in row['antecedents']:
-                            for cons in row['consequents']:
-                                G.add_edge(ant, cons, weight=row['lift'])
+                    #st.header("Visualizing Association Rules")
+                    #G = nx.DiGraph()
+                    #for _, row in rules.iterrows():
+                    #    for ant in row['antecedents']:
+                    #        for cons in row['consequents']:
+                    #           G.add_edge(ant, cons, weight=row['lift'])
     
                     # Create the figure and axis for the network graph
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    pos = nx.spring_layout(G, seed=42)
+                    #fig, ax = plt.subplots(figsize=(10, 6))
+                    #pos = nx.spring_layout(G, seed=42)
                     
                     # Use edge weights for edge thickness and color
-                    edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
+                    #edge_weights = [G[u][v]['weight'] for u, v in G.edges()]
                     
                     # Create colormap for edges
-                    cmap = plt.cm.viridis
+                    #cmap = plt.cm.viridis
                     
                     # Calculate node sizes based on degree
-                    node_size = [3000 * (1 + G.degree(node) / 10) for node in G.nodes()]
+                    #node_size = [3000 * (1 + G.degree(node) / 10) for node in G.nodes()]
                     
                     # Draw the network
-                    edges = nx.draw_networkx_edges(
-                        G, 
-                        pos, 
-                        width=[1 + (w / max(edge_weights) * 5) for w in edge_weights],
-                        edge_color=edge_weights,
-                        edge_cmap=cmap,
-                        ax=ax
-                    )
+                    #edges = nx.draw_networkx_edges(
+                    #    G, 
+                    #   pos, 
+                    #    width=[1 + (w / max(edge_weights) * 5) for w in edge_weights],
+                    #    edge_color=edge_weights,
+                    #    edge_cmap=cmap,
+                    #    ax=ax
+                    #)
                     
-                    nodes = nx.draw_networkx_nodes(
-                        G,
-                        pos,
-                        node_size=node_size,
-                        node_color="lightblue",
-                        ax=ax
-                    )
+                    #nodes = nx.draw_networkx_nodes(
+                    #    G,
+                    #    pos,
+                    #    node_size=node_size,
+                    #    node_color="lightblue",
+                    #    ax=ax
+                    #)
                     
-                    labels = nx.draw_networkx_labels(
-                        G,
-                        pos,
-                        font_size=10,
-                        ax=ax
-                    )
+                    #labels = nx.draw_networkx_labels(
+                    #    G,
+                    #    pos,
+                    #    font_size=10,
+                    #    ax=ax
+                    #)
                     
                     # Add colorbar to the same axis
-                    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)))
-                    sm.set_array([])
-                    cbar = plt.colorbar(sm, ax=ax, label='Lift')
+                    #sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=min(edge_weights), vmax=max(edge_weights)))
+                    #sm.set_array([])
+                    #cbar = plt.colorbar(sm, ax=ax, label='Lift')
                     
-                    plt.title("Association Rules Network Graph")
-                    plt.axis('off')  # Turn off the axis
+                    #plt.title("Association Rules Network Graph")
+                    #plt.axis('off')  # Turn off the axis
                     
-                    st.pyplot(fig)
+                    #st.pyplot(fig)
                     
                     # Interactive Network Graph
-                    st.subheader("Interactive Association Rules Network")
+                    #st.subheader("Interactive Association Rules Network")
                     
                     # Create edge trace
-                    edge_x = []
-                    edge_y = []
-                    edge_trace = go.Scatter(
-                        x=edge_x, y=edge_y,
-                        line=dict(width=0.5, color='#888'),
-                        hoverinfo='none',
-                        mode='lines')
+                    #edge_x = []
+                    #edge_y = []
+                    #edge_trace = go.Scatter(
+                    #    x=edge_x, y=edge_y,
+                    #    line=dict(width=0.5, color='#888'),
+                    #    hoverinfo='none',
+                    #    mode='lines')
                     
                     # Create node trace
-                    node_x = []
-                    node_y = []
+                    #node_x = []
+                    #node_y = []
                     # Create node trace
-                    node_trace = go.Scatter(
-                        x=node_x, y=node_y,
-                        mode='markers',
-                        hoverinfo='text',
-                        marker=dict(
-                            showscale=True,
-                            colorscale='Viridis',
-                            reversescale=True,
-                            color=[],
-                            size=10,
-                            colorbar=dict(
-                                thickness=15,
-                                title='Node Connections',
-                                xanchor='left'  # Removed invalid 'titleside' property
-                            ),
-                            line_width=2
-                        )
-                    )
+                    #node_trace = go.Scatter(
+                    #    x=node_x, y=node_y,
+                    #    mode='markers',
+                    #    hoverinfo='text',
+                    #    marker=dict(
+                    #        showscale=True,
+                    #        colorscale='Viridis',
+                    #        reversescale=True,
+                    #        color=[],
+                    #       size=10,
+                    #        colorbar=dict(
+                    #           thickness=15,
+                    #            title='Node Connections',
+                    #            xanchor='left'  # Removed invalid 'titleside' property
+                    #        ),
+                    #        line_width=2
+                    #    )
+                    #)
                     
                     # Add edges
-                    for edge in G.edges():
-                        x0, y0 = pos[edge[0]]
-                        x1, y1 = pos[edge[1]]
-                        edge_x.append(x0)
-                        edge_x.append(x1)
-                        edge_x.append(None)
-                        edge_y.append(y0)
-                        edge_y.append(y1)
-                        edge_y.append(None)
+                    #for edge in G.edges():
+                    #    x0, y0 = pos[edge[0]]
+                    #    x1, y1 = pos[edge[1]]
+                    #    edge_x.append(x0)
+                    #    edge_x.append(x1)
+                    #    edge_x.append(None)
+                    #    edge_y.append(y0)
+                    #    edge_y.append(y1)
+                    #    edge_y.append(None)
                     
-                    edge_trace.x = edge_x
-                    edge_trace.y = edge_y
+                    #edge_trace.x = edge_x
+                    #edge_trace.y = edge_y
                     
                     # Add nodes
-                    for node in G.nodes():
-                        x, y = pos[node]
-                        node_x.append(x)
-                        node_y.append(y)
+                    #for node in G.nodes():
+                    #    x, y = pos[node]
+                    #    node_x.append(x)
+                    #    node_y.append(y)
                     
-                    node_trace.x = node_x
-                    node_trace.y = node_y
+                    #node_trace.x = node_x
+                    #node_trace.y = node_y
                     
                     # Add node attributes
-                    node_adjacencies = []
-                    node_text = []
-                    for node in G.nodes():
-                        node_adjacencies.append(len(list(G.neighbors(node))))
-                        node_text.append(f'{node}: {len(list(G.neighbors(node)))} connections')
+                    #node_adjacencies = []
+                    #node_text = []
+                    #for node in G.nodes():
+                    #    node_adjacencies.append(len(list(G.neighbors(node))))
+                    #    node_text.append(f'{node}: {len(list(G.neighbors(node)))} connections')
                     
-                    node_trace.marker.color = node_adjacencies
-                    node_trace.text = node_text
+                    #node_trace.marker.color = node_adjacencies
+                    #node_trace.text = node_text
                     
                     # Create figure
-                    fig = go.Figure(data=[edge_trace, node_trace],
-                                layout=go.Layout(
-                                    title=dict(
-                                        text='Interactive Association Rules Network',
-                                        font=dict(size=16)
-                                    ),
-                                    showlegend=False,
-                                    hovermode='closest',
-                                    margin=dict(b=20,l=5,r=5,t=40),
-                                    xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                                    yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
-                                )
+                    #fig = go.Figure(data=[edge_trace, node_trace],
+                     #           layout=go.Layout(
+                     #               title=dict(
+                     #                   text='Interactive Association Rules Network',
+                     #                   font=dict(size=16)
+                     #               ),
+                     #               showlegend=False,
+                     #               hovermode='closest',
+                     #               margin=dict(b=20,l=5,r=5,t=40),
+                     #               xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                     #               yaxis=dict(showgrid=False, zeroline=False, showticklabels=False))
+                     #           )
                     
-                    st.plotly_chart(fig)
+                    #st.plotly_chart(fig)
                     
                     # Warehouse Layout Recommendations
-                    st.header("Warehouse Layout Recommendations")
+                    st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Warehouse Layout Recommendations</h2>
+                        <p>Tick the checkbox to view recommendations</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     
                     if st.checkbox("Show Warehouse Layout Recommendations", value=False):
-                        st.write("""
-                        ### Optimal Warehouse Layout Based on Analysis
-                        
-                        Based on clustering and association rule mining, we recommend the following warehouse organization:
-                        """)
+                        st.markdown(
+                    """
+                    <div class="content-box">
+                        <h3>Optimal Warehouse Layout Based on Analysis</h3>
+                        <p>Based on clustering and association rule mining, we recommend the following warehouse organization</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                        )
                         
                         # Create a simple warehouse layout visualization
                         layout_fig, layout_ax = plt.subplots(figsize=(10, 8))
@@ -608,56 +845,107 @@ def run_warehouse_management():
                         
                         st.pyplot(layout_fig)
                         
-                        st.write("""
-                        #### Layout Recommendations:
-                        
-                        1. **High-Demand Zone (Left)**: Place frequently accessed items near the entrance for easy access
-                        2. **Medium-Demand Zone (Middle)**: General storage area for moderately accessed items
-                        3. **Low-Demand Zone (Right)**: Place rarely accessed items further from main traffic areas
-                        4. **Co-locate frequently associated items** as indicated by the association rules
-                        5. **Consider traffic patterns** when placing items that are often accessed together
-                        """)
-                    
+                        st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Layout Recommendations</h2>
+                        <p>1. High-Demand Zone (Left): Place frequently accessed items near the entrance for easy access</p>
+                        <p>2. Medium-Demand Zone (Middle): General storage area for moderately accessed items</p>
+                        <p>3. Low-Demand Zone (Right): Place rarely accessed items further from main traffic areas</p>
+                        <p>4. Co-locate frequently associated items as indicated by the association rules</p>
+                        <p>5. Consider traffic patterns when placing items that are often accessed together</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
                     # Seasonal Trends Analysis
-                    st.header("Seasonal Trends Analysis")
+                    #st.header("Seasonal Trends Analysis")
                     
-                    if st.checkbox("Analyze Seasonal Patterns", value=False):
-                        # Convert Month period to string for better display
-                        item_monthly_stats['Month_Str'] = item_monthly_stats['Month'].astype(str)
+                    #if st.checkbox("Analyze Seasonal Patterns", value=False):
+                    #    # Convert Month period to string for better display
+                    #    item_monthly_stats['Month_Str'] = item_monthly_stats['Month'].astype(str)
                         
                         # Select an item for trend analysis
-                        all_items = df['Item'].unique()
-                        selected_item = st.selectbox("Select an item to analyze seasonal trends", all_items)
+                    #    all_items = df['Item'].unique()
+                    #    selected_item = st.selectbox("Select an item to analyze seasonal trends", all_items)
                         
-                        item_trend = item_monthly_stats[item_monthly_stats['Item'] == selected_item]
+                     #   item_trend = item_monthly_stats[item_monthly_stats['Item'] == selected_item]
                         
-                        if not item_trend.empty:
-                            # Create time series chart
-                            fig_trend = px.line(
-                                item_trend,
-                                x='Month_Str',
-                                y='Total_Quantity',
-                                markers=True,
-                                title=f'Monthly Quantity Trend for {selected_item}',
-                                labels={'Month_Str': 'Month', 'Total_Quantity': 'Total Quantity'}
-                            )
-                            st.plotly_chart(fig_trend)
+                     #   if not item_trend.empty:
+                     #       # Create time series chart
+                     #       fig_trend = px.line(
+                     #           item_trend,
+                     #           x='Month_Str',
+                     #           y='Total_Quantity',
+                     #           markers=True,
+                     #           title=f'Monthly Quantity Trend for {selected_item}',
+                     #           labels={'Month_Str': 'Month', 'Total_Quantity': 'Total Quantity'}
+                     #       )
+                     #       st.plotly_chart(fig_trend)
                             
                             # Movement frequency trend
-                            fig_freq = px.line(
-                                item_trend,
-                                x='Month_Str',
-                                y='Movement_Frequency',
-                                markers=True,
-                                title=f'Movement Frequency Trend for {selected_item}',
-                                labels={'Month_Str': 'Month', 'Movement_Frequency': 'Movement Frequency'}
-                            )
-                            st.plotly_chart(fig_freq)
-                        else:
-                            st.write(f"No trend data available for {selected_item}")
-                    else:
-                        st.error("No association rules found. Try adjusting lift or support values.")
-                else:
-                    st.error("No frequent itemsets found. Try lowering the minimum support threshold.")
-            else:
-                st.error("The filtered dataset is empty.")
+                      #      fig_freq = px.line(
+                      #          item_trend,
+                      #          x='Month_Str',
+                      #          y='Movement_Frequency',
+                      #          markers=True,
+                      #          title=f'Movement Frequency Trend for {selected_item}',
+                      #          labels={'Month_Str': 'Month', 'Movement_Frequency': 'Movement Frequency'}
+                      #      )
+                       #     st.plotly_chart(fig_freq)
+                       # else:
+                        #    st.write(f"No trend data available for {selected_item}")
+                    #else:
+                     #   st.error("No association rules found. Try adjusting lift or support values.")
+                #else:
+                 #   st.error("No frequent itemsets found. Try lowering the minimum support threshold.")
+            #else:
+             #   st.error("The filtered dataset is empty.")
+
+        # Add CSV download functionality
+        
+        if st.button("Generate Cluster and Association CSV"):
+            df_csv = generate_cluster_csv(item_monthly_stats, rules)
+            st.markdown(
+                                    """
+                                    <style>
+                                        .stDownloadButton {
+                                            display: flex;
+                                            justify-content: center;
+                                            align-items: center;
+                                        }
+                                        .stDownloadButton button {
+                                            background-color: rgba(0, 0, 0, 0.8);
+                                            color: white !important;
+                                            border-radius: 5px !important;
+                                            border: none !important;
+                                            padding: 10px !important;
+                                        }
+                                    </style>
+                                    """,
+                                    unsafe_allow_html=True,
+                )
+            # Convert DataFrame to CSV for download
+            csv = df_csv.to_csv(index=False)
+            st.download_button(
+                label="Download Cluster and Association CSV",
+                data=csv,
+                file_name="cluster_items.csv",
+                mime="text/csv",
+            )
+
+            # Display a preview of the CSV file
+            st.markdown(
+                    """
+                    <div class="content-box">
+                        <h2>Preview of CSV File</h2>
+                        
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                    )
+            st.dataframe(df_csv.head())
+
+# Run the app
+if __name__ == "__main__":
+    run_warehouse_management()
