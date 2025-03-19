@@ -1101,13 +1101,13 @@ else:
             # Individual Prediction Section
             with st.container():
                 st.markdown("""<div class="content-box">
-                <h2>Individual Record Churn Prediction</h2>
+                <h2>Individual Customer Churn Prediction</h2>
                 <p>Predict customer churn based on shipment details and delivery performance.</p>
+                <p>Predict churn for a single customer based on shipment details.</p>
             </div>""", unsafe_allow_html=True)
-                st.markdown("### Individual Customer Churn Prediction")
-                st.write(
-                    "Predict churn for a single customer based on shipment details.")
-
+                st.markdown("""<div class="content-box">
+                <p>Actual Ship Date &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Requested Delivery Date</p>
+                </div>""", unsafe_allow_html=True)
                 # Create two columns for date inputs
                 col1, col2 = st.columns(2)
                 with col1:
@@ -1124,12 +1124,24 @@ else:
                     f"**Calculated Delivery Delay:** {delivery_delay} days")
 
                 # Numerical input fields
+                st.markdown("""<div class="content-box">
+                <p>Total Quantity</p>
+                </div>""", unsafe_allow_html=True)
                 total_quantity = st.number_input(
                     "Total Quantity", min_value=0, value=100)
+                st.markdown("""<div class="content-box">
+                <p>Total Order Lines</p>
+                </div>""", unsafe_allow_html=True)
                 total_order_lines = st.number_input(
                     "Total Order Lines", min_value=0, value=5)
+                st.markdown("""<div class="content-box">
+                <p>Total Cube (CBM)</p>
+                </div>""", unsafe_allow_html=True)
                 total_cube = st.number_input(
                     "Total Cube (CBM)", min_value=0.0, value=10.0)
+                st.markdown("""<div class="content-box">
+                <p>Total Gross Weight (KG)</p>
+                </div>""", unsafe_allow_html=True)
                 total_gross_weight = st.number_input(
                     "Total Gross Weight (KG)", min_value=0.0, value=50.0)
 
@@ -1150,63 +1162,123 @@ else:
                     final_prediction = "Churn" if hybrid_proba > 0.5 else "No Churn"
 
                     # Display results with styling
-                    st.markdown("### Prediction Results")
+                    st.markdown(
+    f"""
+    <div class="content-box">
+        <h2>Prediction Results</h2>
+        <div style="display: flex; justify-content: space-around;">
+            <div style="text-align: center;">
+                <h4>Random Forest Prediction</h4>
+                <p style="font-size: 20px; font-weight: bold;">{rf_proba:.1%}</p>
+                <p>Churn Probability</p>
+            </div>
+            <div style="text-align: center;">
+                <h4>Neural Network Prediction</h4>
+                <p style="font-size: 20px; font-weight: bold;">{nn_proba:.1%}</p>
+                <p>Churn Probability</p>
+            </div>
+            <div style="text-align: center;">
+                <h4>Hybrid AI Prediction</h4>
+                <p style="font-size: 20px; font-weight: bold;">{final_prediction}</p>
+                <p>Confidence: {hybrid_proba:.1%}</p>
+            </div>
+        </div>
+        <div style="margin-top: 20px; padding: 10px; border-radius: 5px; 
+                    {"background-color: #ffdddd; color: red;" if final_prediction == "Churn" else "background-color: #ddffdd; color: green;"}">
+            <p style="font-size: 16px; font-weight: bold;">
+                {"High risk of customer churn! Consider proactive retention measures." if final_prediction == "Churn" else "Low churn risk detected. Customer appears satisfied with service."}
+            </p>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-                    # Create columns for metrics
-                    col1, col2, col3 = st.columns(3)
 
-                    with col1:
-                        st.metric(label="Random Forest Prediction",
-                                  value=f"{rf_proba:.1%}",
-                                  delta="Churn Probability")
+                    # # Create columns for metrics
+                    # col1, col2, col3 = st.columns(3)
 
-                    with col2:
-                        st.metric(label="Neural Network Prediction",
-                                  value=f"{nn_proba:.1%}",
-                                  delta="Churn Probability")
+                    # with col1:
+                    #     st.metric(label="Random Forest Prediction",
+                    #               value=f"{rf_proba:.1%}",
+                    #               delta="Churn Probability")
 
-                    with col3:
-                        st.metric(label="Hybrid AI Prediction",
-                                  value=final_prediction,
-                                  delta=f"Confidence: {hybrid_proba:.1%}",
-                                  delta_color="off")
+                    # with col2:
+                    #     st.metric(label="Neural Network Prediction",
+                    #               value=f"{nn_proba:.1%}",
+                    #               delta="Churn Probability")
 
-                    # Visual feedback
-                    if final_prediction == "Churn":
-                        st.error(
-                            "High risk of customer churn! Consider proactive retention measures.")
-                    else:
-                        st.success(
-                            "Low churn risk detected. Customer appears satisfied with service.")
+                    # with col3:
+                    #     st.metric(label="Hybrid AI Prediction",
+                    #               value=final_prediction,
+                    #               delta=f"Confidence: {hybrid_proba:.1%}",
+                    #               delta_color="off")
+
+                    # # Visual feedback
+                    # if final_prediction == "Churn":
+                    #     st.error(
+                    #         "High risk of customer churn! Consider proactive retention measures.")
+                    # else:
+                    #     st.success(
+                    #         "Low churn risk detected. Customer appears satisfied with service.")
 
                     # Add explanation section
-                    with st.expander("Understanding the Predictions"):
-                        st.markdown("""
-                        **Prediction Breakdown:**
-                        - **Random Forest:** Ensemble decision tree model (Accuracy: ~74%)
-                        - **Neural Network:** Deep learning model with 3 hidden layers
-                        - **Hybrid AI:** Combined prediction average for enhanced accuracy
+                    st.markdown(
+    f"""
+    <div class="content-box">
+        <h2>Prediction Results</h2>
+        <div style="margin-top: 20px;">
+            <h3>Understanding the Predictions</h3>
+            <p><strong>Prediction Breakdown</strong></p>
+            <ul>
+                <li><strong>Random Forest:</strong> Ensemble decision tree model (Accuracy: ~74%)</li>
+                <li><strong>Neural Network:</strong> Deep learning model with 3 hidden layers</li>
+                <li><strong>Hybrid AI:</strong> Combined prediction average for enhanced accuracy</li>
+            </ul>
+            <p><strong>Key Factors Considered</strong></p>
+            <ul>
+                <li>Delivery timeliness (delay calculation)</li>
+                <li>Order volume and complexity</li>
+                <li>Shipment dimensions and weight</li>
+            </ul>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+                #     with st.expander("Understanding the Predictions"):
+                #         st.markdown("""
+                #         **Prediction Breakdown:**
+                #         - **Random Forest:** Ensemble decision tree model (Accuracy: ~74%)
+                #         - **Neural Network:** Deep learning model with 3 hidden layers
+                #         - **Hybrid AI:** Combined prediction average for enhanced accuracy
                         
-                        **Key Factors Considered:**
-                        - Delivery timeliness (delay calculation)
-                        - Order volume and complexity
-                        - Shipment dimensions and weight
-                        """)
-                st.markdown('</div>', unsafe_allow_html=True)
+                #         **Key Factors Considered:**
+                #         - Delivery timeliness (delay calculation)
+                #         - Order volume and complexity
+                #         - Shipment dimensions and weight
+                #         """)
+                # st.markdown('</div>', unsafe_allow_html=True)
 
         with tab2:
             # Company-Level Prediction Section
             with st.container():
                 st.markdown(
                     """<div class="content-box">
-                <h2>Company Churn Prediction</h2>
+                <h2>Company Level Churn Prediction</h2>
                 <p>Predict customer churn based on shipment details and delivery performance.</p>
+                <p>Predict churn for all records of a selected company.</p>
             </div>
             """, unsafe_allow_html=True)
-                st.markdown("### Company-Level Churn Prediction")
-                st.write("Predict churn for all records of a selected company.")
+                
 
                 # Dropdown for company selection
+                st.markdown(
+                    """<div class="content-box">
+                <p>Select a Company</p>
+            </div>
+            """, unsafe_allow_html=True)
                 company_list = df["Company"].unique().tolist()
                 selected_company = st.selectbox(
                     "Select a Company", company_list)
@@ -1241,32 +1313,70 @@ else:
 
                         # Final Decision: Majority vote
                         final_decision = "Churn" if churn_count > no_churn_count else "No Churn"
+                        st.markdown(
+                            f"""
+                            <div class="content-box">
+                                <h2>Prediction Results</h2>
+                                <div style="text-align: center; margin-bottom: 20px;">
+                                    <h3>Final Decision</h3>
+                                    <p style="font-size: 24px; font-weight: bold;">{final_decision}</p>
+                                </div>
+                                <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+                                    <div style="text-align: center;">
+                                        <h4>Total Records</h4>
+                                        <p style="font-size: 20px; font-weight: bold;">{len(hybrid_preds_binary)}</p>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <h4>Churn Predictions</h4>
+                                        <p style="font-size: 20px; font-weight: bold;">{int(churn_count)}</p>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 20px; padding: 10px; border-radius: 5px; 
+                                            {"background-color: #ffdddd; color: red;" if final_decision == "Churn" else "background-color: #ddffdd; color: green;"}">
+                                    <p style="font-size: 16px; font-weight: bold;">
+                                        {"**Warning:** " + selected_company + " has a high risk of churn. Proactive measures are recommended."
+                                        if final_decision == "Churn" else
+                                        "**Good News:** " + selected_company + " has a low risk of churn."}
+                                    </p>
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
 
-                        # Display results
-                        st.markdown("### Prediction Results")
-                        st.metric(label="Final Decision", value=final_decision)
+                        # # Display results
+                        # st.markdown("### Prediction Results")
+                        # st.metric(label="Final Decision", value=final_decision)
 
-                        # Create columns for detailed metrics
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.metric(label="Total Records",
-                                      value=len(hybrid_preds_binary))
-                        with col2:
-                            st.metric(label="Churn Predictions",
-                                      value=int(churn_count))
+                        # # Create columns for detailed metrics
+                        # col1, col2 = st.columns(2)
+                        # with col1:
+                        #     st.metric(label="Total Records",
+                        #               value=len(hybrid_preds_binary))
+                        # with col2:
+                        #     st.metric(label="Churn Predictions",
+                        #               value=int(churn_count))
 
-                        # Visual feedback
-                        if final_decision == "Churn":
-                            st.error(
-                                f"**Warning:** {selected_company} has a high risk of churn. Proactive measures are recommended.")
-                        else:
-                            st.success(
-                                f"**Good News:** {selected_company} has a low risk of churn.")
+                        # # Visual feedback
+                        # if final_decision == "Churn":
+                        #     st.error(
+                        #         f"**Warning:** {selected_company} has a high risk of churn. Proactive measures are recommended.")
+                        # else:
+                        #     st.success(
+                        #         f"**Good News:** {selected_company} has a low risk of churn.")
 
                         # Show detailed predictions in an expandable section
-                        with st.expander("View Detailed Predictions"):
-                            st.write(
-                                "### Detailed Predictions for Each Record")
+                        st.markdown(
+                    """<div class="content-box">
+                <p>View Detailed Predictions</p>
+            </div>
+            """, unsafe_allow_html=True)
+                        with st.expander("Detailed Predictions"):
+                            st.markdown(
+                    """<div class="content-box">
+                <p>Detailed Predictions for Each Record</p>
+            </div>
+            """, unsafe_allow_html=True)
                             results_df = pd.DataFrame({
                                 "Record ID": company_records.index,
                                 "Random Forest Probability": rf_preds,
