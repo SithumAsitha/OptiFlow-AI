@@ -13,6 +13,7 @@ import random
 import gym
 from gym import spaces
 import joblib
+import seaborn as sns
 
 # Set page configuration
 st.set_page_config(page_title="OptiFow AI", page_icon="🚚")
@@ -1005,6 +1006,57 @@ else:
                         file_name=replenishment_plan_file,
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
+                
+                # Visualization: Top 10 Stock Availability
+                stock_summary = stock_data.groupby('Material')['On Hand'].sum().reset_index()
+                top_stock_summary = stock_summary.nlargest(10, 'On Hand')
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Stock Availability by Material (Top 10)</h2>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
+                fig1, ax1 = plt.subplots(figsize=(12, 6))
+                sns.barplot(data=top_stock_summary, x='Material', y='On Hand', ax=ax1)
+                plt.xticks(rotation=45)
+                st.pyplot(fig1)
+
+                # Visualization: Top 10 Forecasted Demand
+                forecast_summary = forecasted_demand.sum(axis=0).reset_index()
+                forecast_summary.columns = ['Material', 'Total Demand']
+                top_forecast_summary = forecast_summary.nlargest(10, 'Total Demand')
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Forecasted Demand by Material (Top 10)</h2>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
+                fig2, ax2 = plt.subplots(figsize=(12, 6))
+                sns.barplot(data=top_forecast_summary, x='Material', y='Total Demand', ax=ax2)
+                plt.xticks(rotation=45)
+                st.pyplot(fig2)
+
+                # Visualization: Top 5 Replenishment Priorities
+                top_priorities = replenishment_plan.nlargest(5, 'quantity')
+                st.markdown(
+                            """
+                            <div class="content-box">
+                                <h2>Top 5 Replenishment Priorities</h2>
+                                
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                )
+                fig3, ax3 = plt.subplots(figsize=(12, 6))
+                sns.barplot(data=top_priorities, x='item', y='quantity', ax=ax3)
+                plt.xticks(rotation=45)
+                st.pyplot(fig3)
 
 
     elif selected == "Customer Churn Prediction":
