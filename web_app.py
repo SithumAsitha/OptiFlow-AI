@@ -1111,7 +1111,7 @@ else:
 
 
     elif selected == "Customer Churn Prediction":
-        
+        with loading_screen("Loading customer churn data..."):
             st.markdown(
                 """
                 <style>
