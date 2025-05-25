@@ -1,13 +1,13 @@
-streamlit
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn
-mlxtend
-networkx
-plotly
-tensorflow
-gym
-streamlit-option-menu
-openpyxl
+streamlit>=1.22.0
+pandas>=1.5.3
+numpy>=1.23.5
+streamlit-option-menu>=0.3.2
+matplotlib>=3.7.1
+tensorflow-cpu>=2.11.0,<2.12.0  # Use CPU version for broader compatibility
+scikit-learn>=1.2.2
+joblib>=1.2.0
+seaborn>=0.12.2
+mlxtend>=0.21.0
+networkx>=3.1
+plotly>=5.14.1
+gym>=0.26.2
